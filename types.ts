@@ -1,3 +1,4 @@
+
 export enum Difficulty {
   Easy = 'Easy',
   Medium = 'Medium',
@@ -14,6 +15,9 @@ export interface Problem {
   starterCode: string;
   likes: number;
   solved: boolean;
+  externalLink?: string;
+  tutorialLink?: string; // "Best Tutorial link"
+  articleLink?: string; // "Solution Article"
 }
 
 export interface UserStats {
@@ -32,4 +36,4 @@ export interface Badge {
   description: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'PROBLEMS' | 'SOLVER' | 'PROFILE';
+export type ViewState = 'DASHBOARD' | 'PROBLEMS' | 'SOLVER' | 'PROFILE' | 'RESOURCES';

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Terminal, Code, Trophy, Flame, User, Play, ChevronLeft, CheckCircle, XCircle, Zap, Menu } from 'lucide-react';
+import { Terminal, Code, Trophy, Flame, User, Play, ChevronLeft, CheckCircle, XCircle, Zap, Menu, BookOpen, ExternalLink, FileText, Calculator, Book, LayoutGrid, Clock, Link as LinkIcon } from 'lucide-react';
 import { Card, Button, BadgeItem, cn } from './components/UI';
 import { StatsChart } from './components/StatsChart';
 import { MOCK_PROBLEMS, MOCK_USER_STATS, MOCK_BADGES } from './constants';
@@ -22,6 +23,7 @@ const Sidebar = ({
   const navItems = [
     { id: 'DASHBOARD', label: 'Dashboard', icon: Terminal },
     { id: 'PROBLEMS', label: 'Problems', icon: Code },
+    { id: 'RESOURCES', label: 'Resources', icon: BookOpen },
     { id: 'PROFILE', label: 'My Stats', icon: User },
   ];
 
@@ -203,7 +205,10 @@ const ProblemList = ({
                   </span>
                   <span className="font-mono text-xs text-gray-500 font-bold uppercase">{prob.category}</span>
                 </div>
-                <h3 className="text-xl font-bold">{prob.title}</h3>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  {prob.title}
+                  {prob.externalLink && <LinkIcon size={14} className="text-gray-400" />}
+                </h3>
               </div>
               <div className="flex items-center space-x-4">
                  {prob.solved && <CheckCircle size={24} strokeWidth={3} />}
@@ -238,12 +243,11 @@ const Solver = ({
   const handleRun = () => {
     setOutput({ status: 'running', message: 'Compiling...' });
     setTimeout(() => {
-      // Mock logic: randomly succeed or fail if it's the starter code
-      // But let's make it always succeed for the "Gamified" feel unless it's empty
+      // Mock logic: always succeed if not starter code for demo purposes
       if (code.trim() === problem.starterCode.trim()) {
          setOutput({ 
            status: 'error', 
-           message: 'Test Case 1: Failed\nExpected: [0, 1]\nReceived: undefined' 
+           message: 'Test Case 1: Failed\nOutput: undefined\nReason: No implementation found.' 
          });
       } else {
          setOutput({ status: 'success', message: 'All Test Cases Passed! \nRuntime: 52ms \nMemory: 42.1MB' });
@@ -252,35 +256,64 @@ const Solver = ({
     }, 1500);
   };
 
+  const getTimeEstimate = (diff: Difficulty) => {
+    switch(diff) {
+      case Difficulty.Easy: return "5 - 10 mins";
+      case Difficulty.Medium: return "15 - 20 mins";
+      case Difficulty.Hard: return "45 - 50 mins";
+    }
+  }
+
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col animate-in fade-in zoom-in-95 duration-300">
       <div className="mb-4 flex items-center justify-between">
         <Button onClick={onBack} variant="secondary" className="flex items-center space-x-2 px-4 py-1 text-sm">
           <ChevronLeft size={16} /> <span>Back</span>
         </Button>
-        <div className="font-bold font-mono text-xl">{problem.title}</div>
+        <div className="font-bold font-mono text-xl truncate px-4">{problem.title}</div>
         <div className="w-20" /> {/* Spacer */}
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
         {/* Description Panel */}
         <Card className="overflow-y-auto bg-white flex flex-col h-full">
-           <div className="flex items-center justify-between mb-4 pb-4 border-b-4 border-black">
-              <span className={cn(
-                  "font-mono text-xs px-2 py-1 border-2 border-black font-bold",
-                  problem.difficulty === 'Easy' ? 'bg-neo-blue text-white' : 
-                  problem.difficulty === 'Medium' ? 'bg-neo-yellow' : 'bg-neo-pink text-white'
-              )}>
-                {problem.difficulty}
-              </span>
+           <div className="flex flex-wrap items-center justify-between mb-4 pb-4 border-b-4 border-black gap-2">
+              <div className="flex gap-2">
+                <span className={cn(
+                    "font-mono text-xs px-2 py-1 border-2 border-black font-bold",
+                    problem.difficulty === 'Easy' ? 'bg-neo-blue text-white' : 
+                    problem.difficulty === 'Medium' ? 'bg-neo-yellow' : 'bg-neo-pink text-white'
+                )}>
+                  {problem.difficulty}
+                </span>
+                <span className="font-mono text-xs px-2 py-1 border-2 border-black font-bold bg-gray-200 flex items-center gap-1">
+                  <Clock size={12} /> {getTimeEstimate(problem.difficulty)}
+                </span>
+              </div>
               <div className="flex space-x-2">
                  <button className="p-2 border-2 border-black hover:bg-gray-100" title="Like">👍 {problem.likes}</button>
               </div>
            </div>
-           <div className="prose font-sans">
+           
+           <div className="prose font-sans mb-6">
              <p className="whitespace-pre-wrap text-lg leading-relaxed">{problem.description}</p>
            </div>
            
+           {problem.externalLink && (
+             <div className="mb-6 p-4 bg-neo-white border-4 border-black shadow-neo-sm">
+               <h4 className="font-black mb-2 flex items-center gap-2">External Resources</h4>
+               <p className="font-mono text-sm mb-2">Practice this problem on the original platform:</p>
+               <a 
+                 href={problem.externalLink} 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 className="inline-flex items-center gap-2 font-bold text-neo-blue hover:underline"
+               >
+                 Go to Problem <ExternalLink size={14} />
+               </a>
+             </div>
+           )}
+
            <div className="mt-auto pt-6">
               <div className="bg-neo-yellow p-4 border-2 border-black">
                 <h4 className="font-black mb-2 flex items-center gap-2"><Zap size={18}/> Hint (AI)</h4>
@@ -292,13 +325,13 @@ const Solver = ({
         {/* Code & Console Panel */}
         <div className="flex flex-col gap-4 h-full min-h-0">
           <div className="flex-1 relative border-4 border-black bg-[#1e1e1e] shadow-neo">
-             <div className="absolute top-0 left-0 right-0 bg-neo-white border-b-4 border-black p-2 flex justify-between items-center">
+             <div className="absolute top-0 left-0 right-0 bg-neo-white border-b-4 border-black p-2 flex justify-between items-center z-10">
                 <span className="font-mono text-xs font-bold px-2">JavaScript</span>
              </div>
              <textarea 
                value={code}
                onChange={(e) => setCode(e.target.value)}
-               className="w-full h-full pt-12 p-4 bg-transparent text-white font-mono resize-none focus:outline-none text-sm md:text-base"
+               className="w-full h-full pt-12 p-4 bg-transparent text-white font-mono resize-none focus:outline-none text-sm md:text-base relative z-0"
                spellCheck={false}
              />
           </div>
@@ -371,6 +404,71 @@ const Profile = ({ userStats }: { userStats: UserStats }) => {
   );
 };
 
+// 6. Resources View
+const Resources = () => {
+  const resources = [
+    {
+      title: "Coding Sheets",
+      description: "Master patterns with this comprehensive problem sheet.",
+      link: "https://docs.google.com/spreadsheets/u/0/d/1P3RXgZju_2OzZyJaRtu6D3Kx-Eks38X09_zJ8aj2zy8/htmlview#",
+      color: "yellow",
+      icon: LayoutGrid
+    },
+    {
+      title: "Placement Cheat Sheet",
+      description: "Your go-to guide for placement preparation and interview tips.",
+      link: "https://docs.google.com/document/u/0/d/1t2F7CwTrUQr5QFhqBdS_lQc5Yg9LU7W4Wu4rHPYpxRA/mobilebasic",
+      color: "pink",
+      icon: FileText
+    },
+    {
+      title: "Aptitude Formulas",
+      description: "Essential math shortcuts and formulas for aptitude tests.",
+      link: "https://docs.google.com/document/d/1cxJXfGLv4KAD2KOJ1hH1XZK0LP1Wa3SdACfsNjg8reI/mobilebasic",
+      color: "green",
+      icon: Calculator
+    },
+    {
+      title: "Core Subjects",
+      description: "Deep dive into OS, DBMS, CN, and OOPs concepts.",
+      link: "https://drive.google.com/drive/u/2/mobile/folders/16veNuSh2SBrj-LkoQWaAKUqsm2pYAT-F?pli=1",
+      color: "blue",
+      icon: Book
+    }
+  ] as const;
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+       <header>
+        <h2 className="text-4xl md:text-6xl font-black mb-2 uppercase">Resources</h2>
+        <p className="font-mono text-lg text-gray-600 font-bold">Curated knowledge base.</p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {resources.map((res) => (
+          <Card key={res.title} color={res.color} className="flex flex-col h-full border-4 border-black shadow-neo hover:shadow-neo-lg transition-all transform hover:-translate-y-1">
+            <div className="flex justify-between items-start mb-6">
+              <div className="bg-black text-white p-4 border-2 border-white shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+                <res.icon size={32} strokeWidth={2.5} />
+              </div>
+              <div className="bg-white px-2 py-1 border-2 border-black font-mono text-xs font-bold uppercase">External</div>
+            </div>
+            
+            <h3 className="text-3xl font-black mb-3 leading-none">{res.title}</h3>
+            <p className="font-mono font-bold mb-8 flex-1 opacity-80">{res.description}</p>
+            
+            <Button 
+              onClick={() => window.open(res.link, '_blank')}
+              className="w-full flex items-center justify-center gap-2 bg-black text-white hover:bg-gray-800 hover:text-white border-white"
+            >
+              Access Resource <ExternalLink size={18} />
+            </Button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 // -- Main App Component --
 
@@ -413,6 +511,7 @@ export default function App() {
       case 'DASHBOARD': return <Dashboard userStats={stats} setView={setView} />;
       case 'PROBLEMS': return <ProblemList problems={problems} onSelect={navigateToProblem} />;
       case 'PROFILE': return <Profile userStats={stats} />;
+      case 'RESOURCES': return <Resources />;
       default: return <Dashboard userStats={stats} setView={setView} />;
     }
   };
