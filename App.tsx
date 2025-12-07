@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Terminal, Code, Trophy, Flame, User, Play, ChevronLeft, CheckCircle, XCircle, Zap, Menu, BookOpen, ExternalLink, FileText, Calculator, Book, LayoutGrid, Clock, Link as LinkIcon } from 'lucide-react';
-import { Card, Button, BadgeItem, cn } from './components/UI';
+import { Card, Button, BadgeItem, Select, cn } from './components/UI';
 import { StatsChart } from './components/StatsChart';
 import { MOCK_PROBLEMS, MOCK_USER_STATS, MOCK_BADGES } from './constants';
 import { Problem, UserStats, ViewState, Difficulty } from './types';
@@ -225,6 +225,44 @@ const ProblemList = ({
 };
 
 // 4. Solver View
+const generateStarterCode = (language: string, jsCode: string): string => {
+  // If the language is javascript, just return the original code
+  if (language === 'javascript') return jsCode;
+
+  // Try to parse function name and args from JS code like: function name(arg1, arg2)
+  const match = jsCode.match(/function\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/);
+
+  if (!match) {
+    // Fallback if parsing fails
+    switch(language) {
+      case 'python': return "def solve():\n    # Write your code here\n    pass";
+      case 'java': return "class Solution {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}";
+      case 'c': return "#include <stdio.h>\n\nvoid solve() {\n    // Write your code here\n}";
+      case 'cpp': return "#include <iostream>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve() {\n        \n    }\n};";
+      default: return jsCode;
+    }
+  }
+
+  const [_, name, argsRaw] = match;
+  const args = argsRaw.split(',').map(a => a.trim()).filter(a => a);
+  
+  // Basic type guessing (naive) for typed languages
+  const typedArgs = (type: string) => args.map(a => `${type} ${a}`).join(', ');
+
+  switch(language) {
+    case 'python': 
+      return `def ${name}(${args.join(', ')}):\n    # Write your code here\n    pass`;
+    case 'java':
+      return `class Solution {\n    // Tip: Use 'int' for numbers, 'String' for text\n    public void ${name}(${typedArgs('int')}) {\n        // Write your code here\n    }\n}`;
+    case 'c':
+      return `#include <stdio.h>\n\nvoid ${name}(${typedArgs('int')}) {\n    // Write your code here\n}`;
+    case 'cpp':
+      return `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void ${name}(${typedArgs('int')}) {\n        // Write your code here\n    }\n};`;
+    default:
+      return jsCode;
+  }
+};
+
 const Solver = ({ 
   problem, 
   onBack,
@@ -234,20 +272,32 @@ const Solver = ({
   onBack: () => void,
   onSolve: (id: number) => void
 }) => {
+  const [language, setLanguage] = useState('javascript');
   const [code, setCode] = useState(problem.starterCode);
   const [output, setOutput] = useState<{status: 'idle' | 'running' | 'success' | 'error', message: string}>({
     status: 'idle',
     message: 'Ready to run...'
   });
 
+  // Reset code when language or problem changes
+  useEffect(() => {
+    setCode(generateStarterCode(language, problem.starterCode));
+    setOutput({ status: 'idle', message: 'Ready to run...' });
+  }, [language, problem]);
+
   const handleRun = () => {
     setOutput({ status: 'running', message: 'Compiling...' });
+    
+    // Get expected starter code for the current language to check if user changed it
+    const expectedStarter = generateStarterCode(language, problem.starterCode).trim();
+    const currentCode = code.trim();
+
     setTimeout(() => {
-      // Mock logic: always succeed if not starter code for demo purposes
-      if (code.trim() === problem.starterCode.trim()) {
+      // Mock logic: fail if code is identical to starter code
+      if (currentCode === expectedStarter) {
          setOutput({ 
            status: 'error', 
-           message: 'Test Case 1: Failed\nOutput: undefined\nReason: No implementation found.' 
+           message: `Test Case 1: Failed\nOutput: undefined\nReason: No implementation found in ${language}.` 
          });
       } else {
          setOutput({ status: 'success', message: 'All Test Cases Passed! \nRuntime: 52ms \nMemory: 42.1MB' });
@@ -264,14 +314,22 @@ const Solver = ({
     }
   }
 
+  const languages = [
+    { id: 'javascript', name: 'JavaScript' },
+    { id: 'python', name: 'Python' },
+    { id: 'java', name: 'Java' },
+    { id: 'cpp', name: 'C++' },
+    { id: 'c', name: 'C' },
+  ];
+
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col animate-in fade-in zoom-in-95 duration-300">
-      <div className="mb-4 flex items-center justify-between">
-        <Button onClick={onBack} variant="secondary" className="flex items-center space-x-2 px-4 py-1 text-sm">
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <Button onClick={onBack} variant="secondary" className="flex items-center space-x-2 px-4 py-1 text-sm w-fit">
           <ChevronLeft size={16} /> <span>Back</span>
         </Button>
         <div className="font-bold font-mono text-xl truncate px-4">{problem.title}</div>
-        <div className="w-20" /> {/* Spacer */}
+        <div className="w-20 hidden md:block" /> {/* Spacer */}
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
@@ -324,19 +382,30 @@ const Solver = ({
 
         {/* Code & Console Panel */}
         <div className="flex flex-col gap-4 h-full min-h-0">
-          <div className="flex-1 relative border-4 border-black bg-[#1e1e1e] shadow-neo">
-             <div className="absolute top-0 left-0 right-0 bg-neo-white border-b-4 border-black p-2 flex justify-between items-center z-10">
-                <span className="font-mono text-xs font-bold px-2">JavaScript</span>
+          <div className="flex-1 relative border-4 border-black bg-[#1e1e1e] shadow-neo flex flex-col">
+             <div className="bg-neo-white border-b-4 border-black p-2 flex justify-between items-center z-10 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2 hidden sm:block">Language:</span>
+                  <Select 
+                    value={language} 
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="py-1 text-sm"
+                  >
+                    {languages.map(lang => (
+                      <option key={lang.id} value={lang.id}>{lang.name}</option>
+                    ))}
+                  </Select>
+                </div>
              </div>
              <textarea 
                value={code}
                onChange={(e) => setCode(e.target.value)}
-               className="w-full h-full pt-12 p-4 bg-transparent text-white font-mono resize-none focus:outline-none text-sm md:text-base relative z-0"
+               className="flex-1 w-full p-4 bg-transparent text-white font-mono resize-none focus:outline-none text-sm md:text-base relative z-0"
                spellCheck={false}
              />
           </div>
 
-          <div className="h-48 border-4 border-black bg-black text-neo-green p-4 font-mono text-sm overflow-y-auto shadow-neo relative">
+          <div className="h-48 border-4 border-black bg-black text-neo-green p-4 font-mono text-sm overflow-y-auto shadow-neo relative shrink-0">
              <div className="absolute top-2 right-2 flex space-x-2">
                 <Button 
                    variant="success" 
